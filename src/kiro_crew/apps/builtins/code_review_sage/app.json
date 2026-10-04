@@ -27,7 +27,8 @@
   },
   "skills": [
     "skills/sage-review",
-    "skills/learn-from-sage"
+    "skills/learn-from-sage",
+    "skills/learn-from-reviews"
   ],
   "permissions": {
     "api": [

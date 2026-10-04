@@ -70,7 +70,8 @@ code_review_sage/
 │   └── ...
 ├── skills/
 │   ├── sage-review/         # review ruleset
-│   └── learn-from-sage/     # miss-analysis learning
+│   ├── learn-from-sage/     # miss-analysis learning
+│   └── learn-from-reviews/  # human-review listener (GitHub + GitLab)
 └── tests/                   # unit tests
 ```
 
