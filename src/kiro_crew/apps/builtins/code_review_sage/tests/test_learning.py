@@ -414,3 +414,60 @@ class TestCandidateLockPortability:
         assert raised, "a symlinked lock path must be refused"
         # The point of the refusal: the pointed-at file is untouched.
         assert victim.read_text(encoding="utf-8") == "precious"
+
+
+class TestExportSteering:
+    """Consolidated patterns, and only those, become a steering file."""
+
+    def _consolidate(self, root, title="Validate cursors", namespace=None):
+        store.ensure_layout(root)
+        md = L.render_pattern(_pattern(title, guidance="check  the\nbounds"))
+        assert L.consolidate_apply(md, root, namespace=namespace)["ok"]
+
+    def test_writes_always_included_steering_from_consolidated_rules(self, tmp_path):
+        root = tmp_path / "app"
+        self._consolidate(root)
+        dest = tmp_path / "steering" / "review-lessons.md"
+        result = L.export_steering(dest, ["default"], root)
+        assert result == {"ok": True, "path": str(dest), "patterns": 1}
+        text = dest.read_text(encoding="utf-8")
+        assert text.startswith("---\ninclusion: always\n")
+        assert L.STEERING_MARKER in text
+        assert "- **Validate cursors** — check the bounds" in text
+
+    def test_candidate_learnings_are_never_exported(self, tmp_path):
+        root = tmp_path / "app"
+        store.ensure_layout(root)
+        L.stage_learning(_pattern("Staged only"), "human_comment", root)
+        result = L.export_steering(tmp_path / "out.md", ["default"], root)
+        assert result["ok"] is False
+        assert not (tmp_path / "out.md").exists()
+
+    def test_refuses_to_overwrite_a_users_own_steering_file(self, tmp_path):
+        root = tmp_path / "app"
+        self._consolidate(root)
+        dest = tmp_path / "mine.md"
+        dest.write_text("# my rules\n", encoding="utf-8")
+        assert L.export_steering(dest, ["default"], root)["ok"] is False
+        assert dest.read_text(encoding="utf-8") == "# my rules\n"
+        assert L.export_steering(dest, ["default"], root, force=True)["ok"] is True
+
+    def test_reexport_replaces_its_own_file(self, tmp_path):
+        root = tmp_path / "app"
+        self._consolidate(root)
+        dest = tmp_path / "out.md"
+        assert L.export_steering(dest, ["default"], root)["ok"]
+        self._consolidate(root, title="Close what you open")
+        assert L.export_steering(dest, ["default"], root)["ok"]
+        text = dest.read_text(encoding="utf-8")
+        assert "Close what you open" in text
+        assert "Validate cursors" not in text
+
+    def test_merges_namespaces_without_duplicates(self, tmp_path):
+        root = tmp_path / "app"
+        self._consolidate(root)
+        assert L.create_namespace("review-received", root)["ok"]
+        self._consolidate(root, namespace="review-received")
+        self._consolidate(root, title="Close what you open", namespace="review-received")
+        result = L.export_steering(tmp_path / "out.md", ["default", "review-received"], root)
+        assert result["patterns"] == 2
